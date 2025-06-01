@@ -20,6 +20,7 @@ interface Product {
   type: string;
   sugar_content: string;
   sku_code: string;
+  appellation_id: string;
   appellations?: {
     name: string;
   };
@@ -49,6 +50,7 @@ const Products = () => {
           type,
           sugar_content,
           sku_code,
+          appellation_id,
           appellations (
             name
           )
@@ -75,7 +77,8 @@ const Products = () => {
     try {
       const { data, error } = await supabase
         .from('appellations')
-        .select('id, name');
+        .select('id, name')
+        .order('name');
 
       if (error) {
         console.error('Error fetching appellations:', error);
@@ -184,7 +187,7 @@ const Products = () => {
                          product.sku_code?.toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesFilter = activeFilter === "All" || product.type === activeFilter;
-    const matchesAppellation = selectedAppellation === "all" || product.appellations?.name === selectedAppellation;
+    const matchesAppellation = selectedAppellation === "all" || product.appellation_id === selectedAppellation;
     
     return matchesSearch && matchesFilter && matchesAppellation;
   });
@@ -260,7 +263,7 @@ const Products = () => {
             <SelectContent>
               <SelectItem value="all">All Appellations</SelectItem>
               {appellations.map((appellation) => (
-                <SelectItem key={appellation.id} value={appellation.name}>
+                <SelectItem key={appellation.id} value={appellation.id}>
                   {appellation.name}
                 </SelectItem>
               ))}
@@ -334,7 +337,7 @@ const Products = () => {
                       {product.sugar_content}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {product.appellations?.name}
+                      {product.appellations?.name || "-"}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {product.sku_code || "-"}

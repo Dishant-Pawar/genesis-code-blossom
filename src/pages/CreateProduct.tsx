@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Layout from "../components/Layout";
@@ -19,6 +18,7 @@ const CreateProduct = () => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [ingredients, setIngredients] = useState<any[]>([]);
+  const [appellations, setAppellations] = useState<any[]>([]);
   const [selectedIngredients, setSelectedIngredients] = useState<{id: string, ingredient_id: string, order_number: number}[]>([]);
   
   const [formData, setFormData] = useState({
@@ -63,9 +63,10 @@ const CreateProduct = () => {
     driving: true
   });
 
-  // Fetch ingredients on component mount
+  // Fetch ingredients and appellations on component mount
   useEffect(() => {
     fetchIngredients();
+    fetchAppellations();
   }, []);
 
   const fetchIngredients = async () => {
@@ -83,6 +84,24 @@ const CreateProduct = () => {
       setIngredients(data || []);
     } catch (error) {
       console.error('Error fetching ingredients:', error);
+    }
+  };
+
+  const fetchAppellations = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('appellations')
+        .select('*')
+        .order('name');
+      
+      if (error) {
+        console.error('Error fetching appellations:', error);
+        return;
+      }
+      
+      setAppellations(data || []);
+    } catch (error) {
+      console.error('Error fetching appellations:', error);
     }
   };
 
@@ -137,6 +156,7 @@ const CreateProduct = () => {
           external_short_link: formData.externalShortLink,
           redirect_link: formData.redirectLink,
           country_of_origin: formData.countryOfOrigin,
+          appellation_id: formData.appellation || null,
         })
         .select()
         .single();
@@ -357,12 +377,18 @@ const CreateProduct = () => {
 
                 <div>
                   <Label htmlFor="appellation">Appellation</Label>
-                  <Input
-                    id="appellation"
-                    value={formData.appellation}
-                    onChange={(e) => handleInputChange("appellation", e.target.value)}
-                    className="mt-1"
-                  />
+                  <Select value={formData.appellation} onValueChange={(value) => handleInputChange("appellation", value)}>
+                    <SelectTrigger className="mt-1">
+                      <SelectValue placeholder="Select appellation" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {appellations.map((appellation) => (
+                        <SelectItem key={appellation.id} value={appellation.id}>
+                          {appellation.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <p className="text-sm text-gray-500 mt-1">
                     Wine legally defined and protected geographical indication.
                   </p>

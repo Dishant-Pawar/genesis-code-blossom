@@ -8,6 +8,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Trash } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { toast } from "sonner";
 
 interface Ingredient {
   order: number;
@@ -17,17 +20,20 @@ interface Ingredient {
 const EditProduct = () => {
   const navigate = useNavigate();
   const { id } = useParams();
+  const { user } = useAuth();
+  const [loading, setLoading] = useState(false);
+  const [appellations, setAppellations] = useState<any[]>([]);
   
   const [formData, setFormData] = useState({
-    name: "Wine2",
+    name: "",
     brand: "",
-    netVolume: "1000",
-    vintage: "1111",
-    type: "Sparkling",
-    sugarContent: "Brut nature",
+    netVolume: "",
+    vintage: "",
+    type: "",
+    sugarContent: "",
     appellation: "",
     alcohol: "",
-    ingredients: [{ order: 1, ingredient: "Aleppo pine resin (Other ingredient)" }] as Ingredient[]
+    ingredients: [] as Ingredient[]
   });
 
   const [responsibleConsumption, setResponsibleConsumption] = useState({
@@ -41,6 +47,72 @@ const EditProduct = () => {
     vegetarian: false,
     vegan: false
   });
+
+  // Fetch appellations on component mount
+  useEffect(() => {
+    fetchAppellations();
+    if (id) {
+      fetchProduct();
+    }
+  }, [id]);
+
+  const fetchAppellations = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('appellations')
+        .select('*')
+        .order('name');
+      
+      if (error) {
+        console.error('Error fetching appellations:', error);
+        return;
+      }
+      
+      setAppellations(data || []);
+    } catch (error) {
+      console.error('Error fetching appellations:', error);
+    }
+  };
+
+  const fetchProduct = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('products')
+        .select(`
+          *,
+          appellations (
+            id,
+            name
+          )
+        `)
+        .eq('id', id)
+        .eq('user_id', user?.id)
+        .single();
+
+      if (error) {
+        console.error('Error fetching product:', error);
+        toast.error('Failed to fetch product');
+        return;
+      }
+
+      if (data) {
+        setFormData({
+          name: data.name || "",
+          brand: data.brand || "",
+          netVolume: data.net_volume || "",
+          vintage: data.vintage || "",
+          type: data.type || "",
+          sugarContent: data.sugar_content || "",
+          appellation: data.appellation_id || "",
+          alcohol: data.alcohol || "",
+          ingredients: [] // You can fetch ingredients separately if needed
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching product:', error);
+      toast.error('Failed to fetch product');
+    }
+  };
 
   // Available ingredients list
   const availableIngredients = [
@@ -109,13 +181,46 @@ const EditProduct = () => {
     setFormData(prev => ({ ...prev, ingredients: reorderedIngredients }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Save product logic here
-    console.log("Product updated:", formData);
-    console.log("Responsible consumption:", responsibleConsumption);
-    console.log("Certifications:", certifications);
-    navigate("/products");
+    
+    if (!user || !id) {
+      toast.error('Invalid request');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const { error } = await supabase
+        .from('products')
+        .update({
+          name: formData.name,
+          brand: formData.brand,
+          net_volume: formData.netVolume,
+          vintage: formData.vintage,
+          type: formData.type,
+          sugar_content: formData.sugarContent,
+          appellation_id: formData.appellation || null,
+          alcohol: formData.alcohol,
+        })
+        .eq('id', id)
+        .eq('user_id', user.id);
+
+      if (error) {
+        console.error('Error updating product:', error);
+        toast.error('Failed to update product');
+        return;
+      }
+
+      toast.success('Product updated successfully!');
+      navigate("/products");
+    } catch (error) {
+      console.error('Error updating product:', error);
+      toast.error('Failed to update product');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -234,12 +339,18 @@ const EditProduct = () => {
 
                 <div>
                   <Label htmlFor="appellation">Appellation</Label>
-                  <Input
-                    id="appellation"
-                    value={formData.appellation}
-                    onChange={(e) => handleInputChange("appellation", e.target.value)}
-                    className="mt-1"
-                  />
+                  <Select value={formData.appellation} onValueChange={(value) => handleInputChange("appellation", value)}>
+                    <SelectTrigger className="mt-1">
+                      <SelectValue placeholder="Select appellation" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {appellations.map((appellation) => (
+                        <SelectItem key={appellation.id} value={appellation.id}>
+                          {appellation.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <p className="text-sm text-gray-500 mt-1">
                     Wine legally defined and protected geographical indication.
                   </p>
@@ -465,8 +576,9 @@ const EditProduct = () => {
             <Button
               type="submit"
               className="bg-blue-600 hover:bg-blue-700 text-white px-8"
+              disabled={loading}
             >
-              Save
+              {loading ? 'Saving...' : 'Save'}
             </Button>
           </div>
         </form>

@@ -1,10 +1,86 @@
-
+import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import Layout from "../components/Layout";
 import { Button } from "@/components/ui/button";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { toast } from "sonner";
+
+interface ProductData {
+  id: string;
+  name: string;
+  brand: string;
+  net_volume: string;
+  vintage: string;
+  type: string;
+  sugar_content: string;
+  alcohol: string;
+  sku_code: string;
+  appellations?: {
+    name: string;
+  };
+}
 
 const ProductDetails = () => {
   const { id } = useParams();
+  const { user } = useAuth();
+  const [product, setProduct] = useState<ProductData | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (id && user) {
+      fetchProduct();
+    }
+  }, [id, user]);
+
+  const fetchProduct = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('products')
+        .select(`
+          *,
+          appellations (
+            name
+          )
+        `)
+        .eq('id', id)
+        .eq('user_id', user?.id)
+        .single();
+
+      if (error) {
+        console.error('Error fetching product:', error);
+        toast.error('Failed to fetch product');
+        return;
+      }
+
+      setProduct(data);
+    } catch (error) {
+      console.error('Error fetching product:', error);
+      toast.error('Failed to fetch product');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <Layout>
+        <div className="max-w-4xl mx-auto px-6 py-8">
+          <div className="text-center">Loading product...</div>
+        </div>
+      </Layout>
+    );
+  }
+
+  if (!product) {
+    return (
+      <Layout>
+        <div className="max-w-4xl mx-auto px-6 py-8">
+          <div className="text-center">Product not found</div>
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout>
@@ -20,19 +96,19 @@ const ProductDetails = () => {
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
                   <span className="font-medium text-gray-700">Name</span>
-                  <p className="text-gray-900">Wine2</p>
+                  <p className="text-gray-900">{product.name}</p>
                 </div>
                 <div>
                   <span className="font-medium text-gray-700">Title</span>
-                  <p className="text-gray-900">Wine2 1111</p>
+                  <p className="text-gray-900">{product.name} {product.vintage}</p>
                 </div>
                 <div>
                   <span className="font-medium text-gray-700">Brand</span>
-                  <p className="text-gray-900">-</p>
+                  <p className="text-gray-900">{product.brand || "-"}</p>
                 </div>
                 <div>
                   <span className="font-medium text-gray-700">Net volume</span>
-                  <p className="text-gray-900">1000 l</p>
+                  <p className="text-gray-900">{product.net_volume} l</p>
                 </div>
               </div>
             </div>
@@ -43,23 +119,23 @@ const ProductDetails = () => {
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
                   <span className="font-medium text-gray-700">Vintage</span>
-                  <p className="text-gray-900">1111</p>
+                  <p className="text-gray-900">{product.vintage}</p>
                 </div>
                 <div>
                   <span className="font-medium text-gray-700">Type</span>
-                  <p className="text-gray-900">Sparkling</p>
+                  <p className="text-gray-900">{product.type}</p>
                 </div>
                 <div>
                   <span className="font-medium text-gray-700">Sugar content</span>
-                  <p className="text-gray-900">Brut nature</p>
+                  <p className="text-gray-900">{product.sugar_content}</p>
                 </div>
                 <div>
                   <span className="font-medium text-gray-700">Appellation</span>
-                  <p className="text-gray-900">-</p>
+                  <p className="text-gray-900">{product.appellations?.name || "-"}</p>
                 </div>
                 <div>
                   <span className="font-medium text-gray-700">Alcohol</span>
-                  <p className="text-gray-900">-</p>
+                  <p className="text-gray-900">{product.alcohol || "-"}</p>
                 </div>
               </div>
             </div>

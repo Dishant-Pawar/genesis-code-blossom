@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
+import QRCode from "qrcode";
 
 interface ProductData {
   id: string;
@@ -16,6 +17,7 @@ interface ProductData {
   sugar_content: string;
   alcohol: string;
   sku_code: string;
+  external_short_link?: string;
   appellations?: {
     name: string;
   };
@@ -26,12 +28,35 @@ const ProductDetails = () => {
   const { user } = useAuth();
   const [product, setProduct] = useState<ProductData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [qrCodeUrl, setQrCodeUrl] = useState<string>("");
 
   useEffect(() => {
     if (id && user) {
       fetchProduct();
     }
   }, [id, user]);
+
+  useEffect(() => {
+    if (product?.external_short_link) {
+      generateQRCode(product.external_short_link);
+    }
+  }, [product]);
+
+  const generateQRCode = async (link: string) => {
+    try {
+      const qrCodeDataUrl = await QRCode.toDataURL(link, {
+        width: 200,
+        margin: 2,
+        color: {
+          dark: '#000000',
+          light: '#FFFFFF'
+        }
+      });
+      setQrCodeUrl(qrCodeDataUrl);
+    } catch (error) {
+      console.error('Error generating QR code:', error);
+    }
+  };
 
   const fetchProduct = async () => {
     try {
@@ -228,7 +253,7 @@ const ProductDetails = () => {
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
                   <span className="font-medium text-gray-700">External short link</span>
-                  <p className="text-gray-900">-</p>
+                  <p className="text-gray-900">{product.external_short_link || "-"}</p>
                 </div>
                 <div>
                   <span className="font-medium text-gray-700">Redirect link</span>
@@ -247,7 +272,7 @@ const ProductDetails = () => {
                 <div>
                   <span className="font-medium text-sm text-gray-700">Label public link</span>
                   <p className="text-blue-600 text-sm break-all">
-                    http://localhost:5206/l/6ea57bd6-5245-4160-b364-035b7794e52f
+                    {product.external_short_link || "No external link available"}
                   </p>
                   <p className="text-xs text-gray-500 mt-1">
                     This is the link that is encoded in the QR code.
@@ -255,10 +280,19 @@ const ProductDetails = () => {
                 </div>
 
                 <div className="flex justify-center">
-                  <div className="w-32 h-32 border-2 border-gray-300 flex items-center justify-center bg-gray-50">
-                    {/* QR Code placeholder */}
-                    <div className="w-24 h-24 bg-black"></div>
-                  </div>
+                  {qrCodeUrl && product.external_short_link ? (
+                    <img 
+                      src={qrCodeUrl} 
+                      alt="QR Code" 
+                      className="border-2 border-gray-300 rounded"
+                    />
+                  ) : (
+                    <div className="w-32 h-32 border-2 border-gray-300 flex items-center justify-center bg-gray-50 rounded">
+                      <span className="text-xs text-gray-500 text-center">
+                        No QR code available
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex flex-wrap gap-2">
